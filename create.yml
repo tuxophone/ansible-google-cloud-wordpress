@@ -1,0 +1,82 @@
+---
+- name: Create vm
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - var
+
+  tasks:
+    - name: Launch instances
+      gce:
+          instance_names: '{{ domain | regex_replace("(\.)","-") }}'
+          machine_type: "{{ machine_type }}"
+          image: "{{ image }}"
+          service_account_email: "{{ service_account_email }}"
+          credentials_file: "{{ credentials_file }}"
+          project_id: "{{ project_id }}"
+          tags: webserver
+      register: gce
+
+    - name: Wait for SSH to come up
+      wait_for: host={{ item.public_ip }} port=22 delay=1 timeout=30 state=started
+      with_items: "{{ gce.instance_data }}"
+
+    - name: Add host to groupname
+      add_host: hostname={{ item.public_ip }} groupname=new_instances
+      with_items: "{{ gce.instance_data }}"
+
+    - name: Allow HTTP traffic
+      gce_net:
+        fwname: pass-http
+        name: default
+        allowed: tcp:80
+        project_id: "{{ project_id }}"
+        credentials_file: "{{ credentials_file }}"
+        service_account_email: "{{ service_account_email }}"
+
+    - name: Allow HTTPS traffic
+      gce_net:
+        fwname: pass-https
+        name: default
+        allowed: tcp:443
+        project_id: "{{ project_id }}"
+        credentials_file: "{{ credentials_file }}"
+        service_account_email: "{{ service_account_email }}"
+
+    - name: Create zone
+      gcdns_zone:
+        project_id: "{{ project_id }}"
+        credentials_file: "{{ credentials_file }}"
+        service_account_email: "{{ service_account_email }}"
+        zone: "{{ domain }}"
+
+    - name: Create record
+      gcdns_record:
+        project_id: "{{ project_id }}"
+        credentials_file: "{{ credentials_file }}"
+        service_account_email: "{{ service_account_email }}"
+        record: "{{ domain }}"
+        zone: "{{ domain }}"
+        type: 'A'
+        value: "{{ item.public_ip }}"
+      with_items: "{{ gce.instance_data }}"
+
+- name: Deploy Nginx and other
+  hosts: new_instances
+  become: yes
+  become_method: sudo
+  roles:
+    - nginx
+    - php-fpm
+    - mysql
+    - wordpress
+
+#- name: Manage new instances
+#  hosts: new_instances
+#  connection: ssh
+#  sudo: True
+#  roles:
+#    - base_configuration
+#    - production_server

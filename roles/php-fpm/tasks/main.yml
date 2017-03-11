@@ -1,0 +1,15 @@
+---
+# tasks file for php-fpm
+- name: Update apt cache
+  apt: update_cache=yes cache_valid_time=3600
+  sudo: yes
+
+- name: Install required software
+  apt: name={{ item }} state=present
+  sudo: yes
+  with_items:
+    - php5
+    - php5-mcrypt
+    - php5-fpm
+    - php5-mysqlnd
+    - php5-gd

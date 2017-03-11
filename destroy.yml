@@ -1,0 +1,51 @@
+---
+- name: Destroy
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - var
+
+  tasks:
+    - name: gce
+      gce:
+          instance_names: '{{ domain | regex_replace("(\.)","-") }}'
+          machine_type: "{{ machine_type }}"
+          image: "{{ image }}"
+          service_account_email: "{{ service_account_email }}"
+          credentials_file: "{{ credentials_file }}"
+          project_id: "{{ project_id }}"
+          tags: webserver
+      register: gce
+
+    - name: remove record
+      gcdns_record:
+        project_id: "{{ project_id }}"
+        credentials_file: "{{ credentials_file }}"
+        service_account_email: "{{ service_account_email }}"
+        record: "{{ domain }}"
+        zone: "{{ domain }}"
+        type: "A"
+        state: absent
+        value: "{{ item.public_ip }}"
+      with_items: "{{ gce.instance_data }}"
+
+    - name: remove zone
+      gcdns_zone:
+        project_id: "{{ project_id }}"
+        credentials_file: "{{ credentials_file }}"
+        service_account_email: "{{ service_account_email }}"
+        zone: "{{ domain }}"
+        state: 'absent'
+
+    - name: Destroy
+      gce:
+          instance_names: '{{ domain | regex_replace("(\.)","-") }}'
+          machine_type: "{{ machine_type }}"
+          image: "{{ image }}"
+          service_account_email: "{{ service_account_email }}"
+          credentials_file: "{{ credentials_file }}"
+          project_id: "{{ project_id }}"
+          tags: webserver
+          state: absent

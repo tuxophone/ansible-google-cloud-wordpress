@@ -1,0 +1,6 @@
+---
+service_account_email: 547781082591-compute@developer.gserviceaccount.com
+credentials_file: /etc/ansible/gce/WordPress-1396309fb57b.json
+project_id: wordpress-160508
+machine_type: f1-micro
+image: debian-8
