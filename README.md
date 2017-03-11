@@ -1,0 +1,1 @@
+# ansible-and-google-cloud
